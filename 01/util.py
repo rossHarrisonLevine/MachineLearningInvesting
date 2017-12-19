@@ -13,12 +13,13 @@ def get_data(symbols,dates):
         symbols.insert(0,'SPY')
     
     for symbol in symbols:
-        tmp_df = pd.read_csv(symbol_to_path(symbol),
-                            usecols=['Date','Adj Close'],
-                            na_values=['nan'],
-                            index_col="Date",parse_dates=True)
-        tmp_df = tmp_df.rename(columns={'Adj Close': symbol})
-        df = df.join(tmp_df)
+        df_tmp = pd.read_csv(symbol_to_path(symbol),
+                             index_col='Date',
+                             parse_dates=True,
+                             usecols=['Date','Adj Close'],
+                             na_values=['nan'])
+        df_tmp = df_tmp.rename(columns={'Adj Close': symbol})
+        df = df.join(df_tmp)
         if symbol == 'SPY':
             df = df.dropna(subset=['SPY'])
     return df
@@ -35,7 +36,7 @@ def plot_selected(df,columns,start_index,end_index):
 
 #makes all graphs start at 1
 def normalize_data(df):
-    return df / df.ix[0,:]
+    return df / df.iloc[0,:]
 
 def get_rolling_mean(values,window):
     return pd.rolling_mean(values,window=window)
@@ -58,3 +59,33 @@ def compute_daily_returns(df):
 def fill_missing_values(df_data):
     df_data.fillna(method='ffill', inplace=True)
     df_data.fillna(method='bfill', inplace=True)
+
+def port_val(start_val, dates, symbols, allocs):
+    if "SPY" not in symbols:
+        allocs.insert(0,0)
+    #make a df of the adj close
+    prices = get_data(symbols, dates)
+    fill_missing_values(prices)
+    #normalize data
+    norm = normalize_data(prices)
+    #find allocated ammounts
+    alloced = norm * allocs
+    #get the position values
+    pos_vals = alloced * start_val
+    #calculate portfolio values
+    port_vals = pos_vals.sum(axis=1)
+    return port_vals
+
+def cum_ret(port_vals):
+    #division of second to last be first
+    return (port_vals[-1] / port_vals[0]) - 1
+
+def avg_daily_ret(daily_ret):
+    return daily_ret.mean()
+
+def std_daily_ret(daily_ret):
+    return daily_ret.std()
+
+def sharpe_ratio(daily_rets, time="balls"):
+    return k * (avg_daily_ret(daily_rets)/std_daily_rets(daily_rets))
+
