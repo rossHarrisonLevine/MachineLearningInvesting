@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import os
 import pandas as pd
 import numpy as np
+import scipy.optimize as spo
 
 def symbol_to_path(symbol,base_dir="data"):
     #return path to cvs
@@ -86,6 +87,86 @@ def avg_daily_ret(daily_ret):
 def std_daily_ret(daily_ret):
     return daily_ret.std()
 
-def sharpe_ratio(daily_rets, time="balls"):
-    return k * (avg_daily_ret(daily_rets)/std_daily_rets(daily_rets))
+def sharpe_ratio(daily_rets, time="daily"):
+    if time == "daily":
+        k = 15.8745
+    elif time == "weekly":
+        k = 7.2111
+    elif time == "monthly":
+        k = 3.4641
+    else:
+        k = 1 
+    return k * (avg_daily_ret(daily_rets)/std_daily_ret(daily_rets))
 
+def error(line, data):
+    """Compute error between given line model and observed data
+    
+    Parameters
+    -----------
+    line: tuple/list/array (C0,C1) where C0 is slope and C1 is Y-intercept
+    data: 2D array where each row is a point (x,y) 
+    
+    Returns error as a single real value
+    """
+    #Metric: sum of squared Y-axis differences
+    err = np.sum((data[:,1] - (line[0] * data[:,0] + line[1])) ** 2)
+    return err
+
+def fit_line(data, error_func):
+    """Fit a line to given data, using a supplied error function.
+    
+    Parameters
+    -----------
+    data: 2D array where each row is a point (X0,Y)
+    error_func: function that computes the error between a line and observed data
+    
+    Returns line that minimizes the error function.
+    """
+    
+    #Generate initial guess for the line model
+    l = np.float32([0, np.mean(data[:,1])]) #slope = 0, intercept = mean(y values)
+    
+    #plot initial guess
+    x_ends = np.float32([-5,5])
+    plt.plot(x_ends, l[0] * x_ends + l[1], 'm--', linewidth = 2.0, label = "Initial Guess")
+    
+    #call optimizer to minimize error function
+    result = spo.minimize(error_func,l,args=(data,), method = 'SLSQP', options={'disp':True})
+    return result.x
+
+def error_poly(C,data):
+    """
+    Compute error betwen given polynomial and observed data.
+    
+    Parameters
+    ----------
+    C: numpy.poly1d object or equivalent array representing polynomial coefs
+    data: 2D array where each row is a point (x,y)
+    
+    Returns error as a single real value.
+    """
+    
+    #Metric: Sum of squared Y-axis differences
+    err = np.sum((data[:,1] - np.polyval(C, data[:,0])) ** 2)
+    return err
+
+def fit_poly(data, error_func, degree = 3):
+    """Fit a polynomial to given data, usinng supplied error function.
+    
+    Parameters
+    ----------
+    data: 2D array where each row is a point (x,y)
+    error_func: function that computes error betwen given polynomial and observed data.
+    
+    Returns polynomial that minimizes the error function."""
+    
+    #Generate initial guess for polynomial model (all coefs = 1)
+    Cguess = np.poly1d(np.ones(degree + 1, dtype = np.float32))
+    
+    #plot initial guess
+    x = np.linspace(-5,5,21)
+    plt.plot(x, np.polyval(guess,x), 'm--', linewidth = 2.0, label = "Inital Guess")
+    
+    #call optimizer to minimize error funciton
+    result = spo.minimize(error_func, Cguess, args=(data,), method = 'SLSQP', options={'disp':True})
+    return np.poly1d(result.x) #converrt optimal result into a poly1D object
