@@ -4,16 +4,19 @@ import pandas as pd
 import numpy as np
 import scipy.optimize as spo
 
+def date_fmt():
+    print("yyyy-mm-dd")
 def symbol_to_path(symbol,base_dir="data"):
     #return path to cvs
     return os.path.join(base_dir,"{}.csv".format(str(symbol)))
 
 def get_data(symbols,dates):
     df = pd.DataFrame(index=dates)
-    if 'SPY' not in symbols: #add SPY for referanece
-        symbols.insert(0,'SPY')
+    s = symbols.copy()
+    if 'SPY' not in s: #add SPY for referanece
+        s.insert(0,'SPY')
     
-    for symbol in symbols:
+    for symbol in s:
         df_tmp = pd.read_csv(symbol_to_path(symbol),
                              index_col='Date',
                              parse_dates=True,
@@ -51,17 +54,18 @@ def get_bollinger_bands(rm,rstd):
     return upper_band, lower_band
 
 
-def compute_daily_returns(df):
-    daily_returns = (df / df.shift(1)) - 1
-    daily_returns.ix[0,:] = 0
-    return daily_returns
+def compute_daily_returns(port_val):
+    dr = port_val.copy() #copy given port vals    
+    dr = (port_val[1:] / port_val[:-1].values) - 1
+    dr.ix[0,:] = 0
+    return dr
 
 #fills in any missing values
 def fill_missing_values(df_data):
     df_data.fillna(method='ffill', inplace=True)
     df_data.fillna(method='bfill', inplace=True)
 
-def port_val(start_val, dates, symbols, allocs):
+def port_val(dates, symbols, allocs, start_val=1):
     if "SPY" not in symbols:
         allocs.insert(0,0)
     #make a df of the adj close
@@ -98,7 +102,7 @@ def sharpe_ratio(daily_rets, time="daily"):
         k = 1 
     return k * (avg_daily_ret(daily_rets)/std_daily_ret(daily_rets))
 
-def error(line, data):
+def line_error(line, data):
     """Compute error between given line model and observed data
     
     Parameters
